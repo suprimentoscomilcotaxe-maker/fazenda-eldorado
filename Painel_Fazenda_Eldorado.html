@@ -324,9 +324,9 @@ async function loadData(){
       skipEmptyLines: true,
       complete: function(result){
         DATA = result.data
-          .filter(r => r['Data da Compra'] && r['Fornecedor'])
+          .filter(r => r['Fornecedor'] && (r['Mês/Ano'] || r['Data da Compra']))
           .map(r => ({
-            periodo:    parsePeriodo(r['Data da Compra']),
+            periodo:    (r['Mês/Ano']||'').trim() || parsePeriodo(r['Data da Compra']),
             fornecedor: (r['Fornecedor']||'').trim().toUpperCase(),
             categoria:  (r['Categoria']||'').trim(),
             etapa:      (r['Etapa da Obra']||'').trim(),
