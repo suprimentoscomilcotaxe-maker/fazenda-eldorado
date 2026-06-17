@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Painel Executivo da Obra — Fazenda Eldorado</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#1a1a2e;color:#222;font-size:13px;min-height:100vh}
+
+/* ── IDENTIDADE DE MARCA ── */
+.topbar{background:#1a2035;height:40px;display:flex;align-items:center;padding:0 18px;gap:9px}
+.topbar-dots{display:flex;gap:7px}
+.topbar-dots span{width:12px;height:12px;border-radius:50%;display:inline-block}
+.td1{background:#1565c0}.td2{background:#10b981}.td3{background:#8b5cf6}
+.topbar-label{color:#94a3b8;font-size:11px;font-weight:600;letter-spacing:.5px;margin-left:4px}
+.topbar-status{margin-left:auto;font-size:10px;color:#64748b;display:flex;align-items:center;gap:5px}
+.topbar-status .dot{width:7px;height:7px;border-radius:50%;background:#10b981}
+.topbar-status .dot.loading{background:#f59e0b;animation:pulse 1s infinite}
+.topbar-status .dot.error{background:#ef4444}
+
+/* ── TÍTULO ── */
+.title-bar{background:#1a1a2e;padding:10px 16px;text-align:center;border-bottom:1px solid #2d2d44}
+.title-bar h1{font-size:17px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;color:#fff}
+
+/* ── BRAND + FILTROS ── */
+.brand-filters{background:#1a1a2e;padding:10px 16px;display:flex;align-items:center;gap:12px;border-bottom:2px solid #111;flex-wrap:wrap}
+.brand-block{display:flex;flex-direction:column;line-height:1.1;min-width:90px;margin-right:6px}
+.brand-block small{font-size:9px;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;font-weight:600}
+.brand-block strong{font-size:17px;font-weight:800;color:#fff;letter-spacing:.5px}
+.fbox{display:flex;flex-direction:column;padding:5px 14px;border:1.5px solid #ccc;border-radius:8px;min-width:155px;background:#fff}
+.fbox label{font-size:9px;font-weight:700;text-align:center;color:#333;letter-spacing:.4px;margin-bottom:2px}
+.fbox select{background:transparent;border:none;outline:none;color:#222;font-size:12px;cursor:pointer;text-align:center}
+.fbox select option{background:#fff;color:#222}
+.btn-reset{background:#fff;border:1.5px solid #ccc;color:#555;border-radius:8px;padding:7px 16px;font-size:12px;cursor:pointer;transition:.15s;white-space:nowrap}
+.btn-reset:hover{border-color:#2196F3;color:#2196F3}
+.btn-reload{margin-left:auto;background:transparent;border:1.5px solid #2d2d44;color:#94a3b8;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;transition:.15s;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.btn-reload:hover{border-color:#2196F3;color:#2196F3}
+
+/* ── MAIN ── */
+.main{padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+
+/* ── LOADING OVERLAY ── */
+.loading-overlay{position:fixed;inset:0;background:rgba(26,26,46,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px}
+.loading-overlay.hidden{display:none}
+.spinner{width:40px;height:40px;border:3px solid #2d2d44;border-top-color:#2196F3;border-radius:50%;animation:spin .7s linear infinite}
+.loading-overlay p{color:#94a3b8;font-size:13px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── ERRO ── */
+.error-banner{background:#7f1d1d;color:#fca5a5;padding:12px 18px;border-radius:8px;font-size:12px;display:none;margin-bottom:10px}
+.error-banner.visible{display:block}
+
+/* ── GRID ÚNICO: 2 colunas, linhas automáticas ── */
+.main-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto auto auto;
+  gap:10px;
+}
+/* KPIs ficam num wrapper que ocupa col 1, row 1 */
+.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;grid-column:1;grid-row:1}
+.kpi{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;display:flex;flex-direction:column;justify-content:center}
+.kpi-label{font-size:12px;font-weight:700;color:#555;text-align:center;margin-bottom:8px}
+.kpi-value{font-size:30px;font-weight:800;color:#111;line-height:1.1}
+.kpi-value.stage{font-size:24px;color:#1a1a2e;text-align:center;font-weight:800}
+.kpi-sub{font-size:12px;color:#999;margin-top:5px}
+/* Evolução: col 2, ocupa rows 1+2 */
+.evo-card{grid-column:2;grid-row:1/span 2;background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column}
+/* Histórico: col 1, row 2 */
+.hist-card{grid-column:1;grid-row:2;background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 18px}
+/* Gastos: col 1, row 3 */
+.gastos-card{grid-column:1;grid-row:3;background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 18px}
+/* Distribuição: col 2, row 3 */
+.dist-card{grid-column:2;grid-row:3;background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;align-items:center}
+
+/* ── CARDS GENÉRICOS ── */
+.card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 18px}
+.card-title{font-size:12px;font-weight:700;text-align:center;color:#333;margin-bottom:10px}
+.chart-flex{flex:1;position:relative;min-height:0}
+
+/* ── TABELA ── */
+.table-wrap{overflow-x:auto;max-height:210px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}
+thead th{background:#f5f5f5;border-bottom:2px solid #ddd;padding:7px 10px;text-align:left;font-weight:700;color:#333;white-space:nowrap;position:sticky;top:0;z-index:1}
+tbody td{padding:6px 10px;border-bottom:1px solid #eee;vertical-align:middle;color:#222}
+tbody tr:hover{background:#f0f6ff}
+tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#f5f5f5;color:#111}
+.link-btn{display:inline-flex;align-items:center;gap:4px;background:#f0f6ff;border:1px solid #b3d4f5;color:#1565c0;border-radius:5px;padding:3px 9px;font-size:11px;text-decoration:none;white-space:nowrap}
+.link-btn:hover{background:#d6eaff}
+.link-btn.foto{background:#fff8f0;border-color:#ffd4a0;color:#e65100}
+.val-r{text-align:right;font-weight:700;color:#111}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#f5f5f5}
+::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+
+/* ── TABLET (até 1024px) ── */
+@media(max-width:1024px){
+  .fbox{min-width:130px}
+  .kpi-value{font-size:26px}
+  .kpi-value.stage{font-size:20px}
+}
+
+/* ── MOBILE (até 768px) ── */
+@media(max-width:768px){
+  .topbar-label{display:none}
+  .title-bar h1{font-size:13px;letter-spacing:1.5px}
+  .brand-filters{padding:8px 10px;gap:8px}
+  .brand-block strong{font-size:14px}
+  .fbox{min-width:calc(50% - 8px);flex:1}
+  .btn-reset,.btn-reload{width:100%;margin-left:0;text-align:center;justify-content:center}
+  .main{padding:8px}
+
+  /* Grid vira coluna única */
+  .main-grid{
+    grid-template-columns:1fr;
+    grid-template-rows:auto;
+  }
+  .kpi-row{grid-column:1;grid-row:auto}
+  .evo-card{grid-column:1;grid-row:auto}
+  .hist-card{grid-column:1;grid-row:auto}
+  .gastos-card{grid-column:1;grid-row:auto}
+  .dist-card{grid-column:1;grid-row:auto}
+
+  .kpi-value{font-size:24px}
+  .kpi-value.stage{font-size:18px}
+  table{font-size:11px;min-width:700px}
+}
+
+/* ── MOBILE PEQUENO iPhone SE / Android compacto (até 480px) ── */
+@media(max-width:480px){
+  .title-bar h1{font-size:11px;letter-spacing:1px}
+  .brand-block{display:none}
+  .fbox{min-width:calc(50% - 6px)}
+  .fbox label{font-size:8px}
+  .fbox select{font-size:11px}
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .kpi{padding:12px}
+  .kpi-value{font-size:20px}
+  .kpi-value.stage{font-size:16px}
+  .card-title,.kpi-label{font-size:11px}
+  table{font-size:10px;min-width:600px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p>Carregando dados da planilha…</p>
+</div>
+
+<!-- IDENTIDADE -->
+<div class="topbar">
+  <div class="topbar-dots">
+    <span class="td1"></span><span class="td2"></span><span class="td3"></span>
+  </div>
+  <span class="topbar-label">Painel Executivo da Obra — Fazenda Eldorado</span>
+  <div class="topbar-status">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">—</span>
+  </div>
+</div>
+
+<!-- TÍTULO -->
+<div class="title-bar">
+  <h1>Painel Executivo da Obra</h1>
+</div>
+
+<!-- BRAND + FILTROS -->
+<div class="brand-filters">
+  <div class="brand-block"><small>Fazenda</small><strong>ELDORADO</strong></div>
+  <div class="fbox"><label>Período</label><select id="fPeriodo"><option value="">Todos</option></select></div>
+  <div class="fbox"><label>Etapa</label><select id="fEtapa"><option value="">Todos</option></select></div>
+  <div class="fbox"><label>Categoria</label><select id="fCategoria"><option value="">Todos</option></select></div>
+  <div class="fbox"><label>Fornecedor</label><select id="fFornecedor"><option value="">Todos</option></select></div>
+  <button class="btn-reset" id="btnReset">✕ Limpar filtros</button>
+  <button class="btn-reload" id="btnReload">↻ Atualizar</button>
+</div>
+
+<div class="main">
+  <div class="error-banner" id="errBanner"></div>
+
+  <!-- GRID ÚNICO -->
+  <div class="main-grid">
+
+    <!-- Row 1, Col 1: KPIs lado a lado -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Investimento Acumulado</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub" id="kpiSub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Etapa Mais Cara</div>
+        <div class="kpi-value stage" id="kpiEtapa">—</div>
+        <div class="kpi-sub" id="kpiEtapaSub"></div>
+      </div>
+    </div>
+
+    <!-- Col 2, Rows 1+2: Evolução Mensal -->
+    <div class="evo-card">
+      <div class="card-title">Evolução Mensal dos Investimentos</div>
+      <div style="flex:1;position:relative;min-height:220px">
+        <canvas id="cEvo" role="img" aria-label="Evolução mensal dos investimentos"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 2, Col 1: Histórico -->
+    <div class="hist-card">
+      <div class="card-title">Histórico de Investimentos</div>
+      <div style="position:relative;height:185px">
+        <canvas id="cHist" role="img" aria-label="Histórico de investimentos por mês"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 3, Col 1: Gastos -->
+    <div class="gastos-card">
+      <div class="card-title">Gastos por Etapa da Obra</div>
+      <div id="cEtWrap" style="position:relative;height:110px">
+        <canvas id="cEt" role="img" aria-label="Gastos por etapa da obra"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 3, Col 2: Distribuição -->
+    <div class="dist-card">
+      <div class="card-title" style="width:100%">Distribuição dos Investimentos</div>
+      <div style="position:relative;width:100%;max-width:340px;height:210px">
+        <canvas id="cDist" role="img" aria-label="Distribuição dos investimentos por categoria"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TABELA -->
+  <div class="card">
+    <div class="card-title">Detalhamento dos Investimentos <span id="tblCount" style="font-weight:400;color:#999"></span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Período</th><th>Fornecedor</th><th>Categoria</th><th>Etapa da Obra</th>
+          <th>Nº NF</th><th>Abrir NF</th><th>Fotos</th><th class="val-r">Valor Total</th><th>Observação</th>
+        </tr></thead>
+        <tbody id="tblBody"></tbody>
+        <tfoot id="tblFoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  ⚙️  CONFIGURAÇÃO
+// ═══════════════════════════════════════════════════════
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSZTSIY3XgY77zMKqOvbJeWu2losCtiXYGnNmEEsVJnf6JMgVJ9VssQfyUWqf2XyRwcXHfdKmtD7AGU/pub?gid=592026812&single=true&output=csv';
+
+// Intervalo de atualização automática (em minutos). 0 = desativado.
+const AUTO_REFRESH_MINUTES = 5;
+// ═══════════════════════════════════════════════════════
+
+const MO=["janeiro/2026","fevereiro/2026","março/2026","abril/2026","maio/2026","junho/2026","julho/2026","agosto/2026","setembro/2026","outubro/2026","novembro/2026","dezembro/2026","janeiro/2027","fevereiro/2027","março/2027","abril/2027","maio/2027","junho/2027","julho/2027","agosto/2027","setembro/2027","outubro/2027","novembro/2027","dezembro/2027"];
+const MESES_NUM={1:'janeiro',2:'fevereiro',3:'março',4:'abril',5:'maio',6:'junho',7:'julho',8:'agosto',9:'setembro',10:'outubro',11:'novembro',12:'dezembro'};
+
+const fmt=v=>'R$ '+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK=v=>v>=1000?'R$ '+(v/1000).toFixed(0)+' Mil':'R$ '+Math.round(v);
+const BLUE='#2196F3';
+const COLORS=['#2196F3','#1a237e','#FF9800','#4CAF50','#9C27B0','#00BCD4','#E91E63','#795548'];
+const GL='rgba(0,0,0,.07)', TC='#666';
+
+let DATA=[];
+let filters={periodo:'',etapa:'',categoria:'',fornecedor:''};
+let ch={};
+
+// "3/10/2026" → "março/2026"
+function parsePeriodo(dataStr){
+  if(!dataStr) return '';
+  const p=dataStr.trim().split('/');
+  if(p.length<3) return dataStr;
+  const mes=MESES_NUM[parseInt(p[0])];
+  return mes ? mes+'/'+p[2] : dataStr;
+}
+
+// "R$ 11.569,06" → 11569.06
+function parseValor(v){
+  if(!v) return 0;
+  return parseFloat(v.toString().replace(/R\$\s*/,'').replace(/\./g,'').replace(',','.')) || 0;
+}
+
+function setStatus(state, text){
+  const dot=document.getElementById('statusDot');
+  const txt=document.getElementById('statusText');
+  dot.className='dot'+(state==='loading'?' loading':state==='error'?' error':'');
+  txt.textContent=text;
+}
+
+async function loadData(){
+  if(SHEET_CSV_URL==='COLE_AQUI_A_URL_DO_GOOGLE_SHEETS'){
+    showError('⚠️ URL da planilha não configurada. Siga o guia de configuração para conectar o Google Sheets.');
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    setStatus('error','Não configurado');
+    return;
+  }
+
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  setStatus('loading','Carregando…');
+  hideError();
+
+  try {
+    // Adiciona timestamp para evitar cache
+    const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const csv = await res.text();
+
+    Papa.parse(csv, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(result){
+        DATA = result.data
+          .filter(r => r['Data da Compra'] && r['Fornecedor'])
+          .map(r => ({
+            periodo:    parsePeriodo(r['Data da Compra']),
+            fornecedor: (r['Fornecedor']||'').trim().toUpperCase(),
+            categoria:  (r['Categoria']||'').trim(),
+            etapa:      (r['Etapa da Obra']||'').trim(),
+            nf:         (r['Nº NF']||'').trim(),
+            nfUrl:      (r['URL_Nota']||'').trim() || null,
+            fotosUrl:   (r['URL_Fotos']||'').trim() || null,
+            valor:      parseValor(r['Valor Total']),
+            obs:        (r['Observação']||'').trim()
+          }));
+
+        // Reseta filtros e reconstrói dropdowns
+        filters={periodo:'',etapa:'',categoria:'',fornecedor:''};
+        ['fPeriodo','fEtapa','fCategoria','fFornecedor'].forEach(id=>{
+          const s=document.getElementById(id);
+          while(s.options.length>1) s.remove(1);
+          s.value='';
+        });
+
+        populateFilters();
+        render();
+
+        const now=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        setStatus('ok','Atualizado às '+now);
+        document.getElementById('loadingOverlay').classList.add('hidden');
+      },
+      error: function(err){
+        throw new Error('Erro ao interpretar CSV: '+err.message);
+      }
+    });
+  } catch(e){
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    setStatus('error','Falha ao carregar');
+    showError('Não foi possível carregar os dados: '+e.message+'. Verifique se a planilha está publicada corretamente.');
+  }
+}
+
+function showError(msg){
+  const b=document.getElementById('errBanner');
+  b.textContent=msg;
+  b.classList.add('visible');
+}
+function hideError(){
+  document.getElementById('errBanner').classList.remove('visible');
+}
+
+function gF(){
+  return DATA.filter(r=>
+    (!filters.periodo||r.periodo===filters.periodo)&&
+    (!filters.etapa||r.etapa===filters.etapa)&&
+    (!filters.categoria||r.categoria===filters.categoria)&&
+    (!filters.fornecedor||r.fornecedor===filters.fornecedor)
+  );
+}
+
+function populateFilters(){
+  const fill=(id,key)=>{
+    const s=document.getElementById(id);
+    const vals=[...new Set(DATA.map(r=>r[key]))].filter(Boolean);
+    if(key==='periodo') vals.sort((a,b)=>MO.indexOf(a)-MO.indexOf(b)); else vals.sort();
+    vals.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);});
+  };
+  fill('fPeriodo','periodo'); fill('fEtapa','etapa');
+  fill('fCategoria','categoria'); fill('fFornecedor','fornecedor');
+}
+
+function mk(id,type,data,opts){
+  if(ch[id]) ch[id].destroy();
+  ch[id]=new Chart(document.getElementById(id),{type,data,options:{responsive:true,maintainAspectRatio:false,...opts}});
+}
+
+function render(){
+  const d=gF();
+  const tot=d.reduce((s,r)=>s+r.valor,0);
+  const tk={color:TC,font:{size:11}};
+
+  // KPIs
+  document.getElementById('kpiTotal').textContent=fmt(tot);
+  document.getElementById('kpiSub').textContent='';
+  const byE={};d.forEach(r=>{byE[r.etapa]=(byE[r.etapa]||0)+r.valor;});
+  const top=Object.entries(byE).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('kpiEtapa').textContent=top?top[0]:'—';
+  document.getElementById('kpiEtapaSub').textContent='';
+
+  // Meses
+  const byM={};d.forEach(r=>{byM[r.periodo]=(byM[r.periodo]||0)+r.valor;});
+  const ml=Object.keys(byM).sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+  const mv=ml.map(k=>byM[k]);
+
+  // Evolução (linha)
+  mk('cEvo','line',{labels:ml,datasets:[{
+    data:mv,borderColor:BLUE,backgroundColor:'rgba(33,150,243,.07)',
+    borderWidth:2,pointRadius:5,pointBackgroundColor:BLUE,fill:true,tension:0.3
+  }]},{
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtK(c.raw)}}},
+    scales:{
+      x:{grid:{color:GL},ticks:{...tk}},
+      y:{grid:{color:GL},ticks:{...tk,callback:v=>fmtK(v)},beginAtZero:true}
+    }
+  });
+
+  // Histórico (barras por mês)
+  mk('cHist','bar',{labels:ml,datasets:[{
+    data:mv,
+    backgroundColor:mv.map(v=>v===Math.max(...mv)?BLUE:'rgba(33,150,243,.4)'),
+    borderRadius:3
+  }]},{
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},
+    scales:{
+      x:{grid:{color:GL},ticks:{...tk}},
+      y:{grid:{color:GL},ticks:{...tk,callback:v=>fmtK(v)},beginAtZero:true}
+    }
+  });
+
+  // Distribuição (donut)
+  const byC={};d.forEach(r=>{byC[r.categoria]=(byC[r.categoria]||0)+r.valor;});
+  const cl=Object.keys(byC),cv=cl.map(k=>byC[k]);
+  mk('cDist','doughnut',{labels:cl,datasets:[{
+    data:cv,backgroundColor:COLORS.slice(0,cl.length),
+    borderWidth:3,borderColor:'#fff',hoverOffset:5
+  }]},{
+    cutout:'58%',
+    plugins:{
+      legend:{position:'bottom',labels:{color:'#333',font:{size:11},boxWidth:11,padding:10}},
+      tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.raw)}}
+    }
+  });
+
+  // Gastos por Etapa (horizontal)
+  const ee=Object.entries(byE).sort((a,b)=>b[1]-a[1]);
+  const h=Math.max(90,ee.length*40+30);
+  document.getElementById('cEtWrap').style.height=h+'px';
+  mk('cEt','bar',{labels:ee.map(e=>e[0]),datasets:[{
+    data:ee.map(e=>e[1]),backgroundColor:BLUE,borderRadius:3,barThickness:18
+  }]},{
+    indexAxis:'y',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},
+    scales:{
+      x:{grid:{color:GL},ticks:{...tk,callback:v=>fmtK(v)},beginAtZero:true},
+      y:{grid:{display:false},ticks:{color:'#333',font:{size:12}}}
+    }
+  });
+
+  // Tabela
+  document.getElementById('tblCount').textContent='('+d.length+' registros)';
+  document.getElementById('tblBody').innerHTML=d.length?d.map(r=>`<tr>
+    <td style="white-space:nowrap;color:#888">${r.periodo}</td>
+    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500" title="${r.fornecedor}">${r.fornecedor}</td>
+    <td>${r.categoria}</td>
+    <td>${r.etapa}</td>
+    <td style="color:#888">${r.nf}</td>
+    <td style="text-align:center">${r.nfUrl?`<a class="link-btn" href="${r.nfUrl}" target="_blank">🔗 NF</a>`:'<span style="color:#ccc">—</span>'}</td>
+    <td style="text-align:center">${r.fotosUrl?`<a class="link-btn foto" href="${r.fotosUrl}" target="_blank">📷 Fotos</a>`:'<span style="color:#ccc">—</span>'}</td>
+    <td class="val-r">${fmt(r.valor)}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888" title="${r.obs||''}">${r.obs||'—'}</td>
+  </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:#bbb;padding:20px">Nenhum registro encontrado</td></tr>`;
+
+  document.getElementById('tblFoot').innerHTML=`<tr>
+    <td colspan="7" style="color:#555">Total</td>
+    <td class="val-r">${fmt(tot)}</td>
+    <td></td>
+  </tr>`;
+}
+
+['fPeriodo','fEtapa','fCategoria','fFornecedor'].forEach((id,i)=>{
+  const k=['periodo','etapa','categoria','fornecedor'][i];
+  document.getElementById(id).addEventListener('change',e=>{filters[k]=e.target.value;render();});
+});
+document.getElementById('btnReset').addEventListener('click',()=>{
+  filters={periodo:'',etapa:'',categoria:'',fornecedor:''};
+  ['fPeriodo','fEtapa','fCategoria','fFornecedor'].forEach(id=>document.getElementById(id).value='');
+  render();
+});
+document.getElementById('btnReload').addEventListener('click',()=>loadData());
+
+// Auto-refresh
+if(AUTO_REFRESH_MINUTES > 0){
+  setInterval(loadData, AUTO_REFRESH_MINUTES * 60 * 1000);
+}
+
+// Inicia
+loadData();
+</script>
+</body>
+</html>
