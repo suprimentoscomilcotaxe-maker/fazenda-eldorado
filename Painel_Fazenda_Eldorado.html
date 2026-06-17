@@ -510,6 +510,11 @@ if(AUTO_REFRESH_MINUTES > 0){
   setInterval(loadData, AUTO_REFRESH_MINUTES * 60 * 1000);
 }
 
+// Service Worker (PWA - tela cheia no Android)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
 // Inicia
 loadData();
 </script>
