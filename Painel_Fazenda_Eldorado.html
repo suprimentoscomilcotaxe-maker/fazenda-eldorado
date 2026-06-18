@@ -125,11 +125,17 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 /* ── MODAL NOTA FISCAL ── */
 .nf-modal{display:none;position:fixed;inset:0;background:#111;z-index:9999;flex-direction:column}
 .nf-modal.open{display:flex}
-.nf-modal-header{background:#1a2035;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px}
-.nf-modal-header span{font-size:13px;font-weight:600;color:#94a3b8}
-.nf-modal-close{background:none;border:1.5px solid #2d2d44;color:#94a3b8;border-radius:7px;padding:5px 14px;font-size:13px;cursor:pointer}
-.nf-modal-close:hover{border-color:#ef4444;color:#ef4444}
-.nf-modal iframe{flex:1;border:none;width:100%;height:100%;background:#fff}
+.nf-modal-header{background:#1a2035;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px}
+.nf-modal-header span{font-size:13px;font-weight:600;color:#94a3b8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nf-modal-btn{background:none;border:1.5px solid #2d2d44;color:#94a3b8;border-radius:7px;padding:5px 14px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.nf-modal-btn:hover{border-color:#2196F3;color:#2196F3}
+.nf-modal-btn.red:hover{border-color:#ef4444;color:#ef4444}
+.nf-file-list{flex:1;overflow-y:auto;padding:10px}
+.nf-file-item{background:#1e2235;border:1px solid #2d3555;border-radius:8px;padding:13px 16px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:.15s}
+.nf-file-item:hover{background:#252d45;border-color:#2196F3}
+.nf-file-name{flex:1;color:#e2e8f0;font-size:13px;word-break:break-word;line-height:1.4}
+.nf-msg{color:#94a3b8;text-align:center;padding:40px;font-size:13px}
+.nf-modal iframe{flex:1;border:none;width:100%;background:#fff}
 
 /* ── FOTO AMPLIADA ── */
 .photo-full{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:10000;align-items:center;justify-content:center}
@@ -217,10 +223,14 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 <!-- MODAL NOTA FISCAL -->
 <div class="nf-modal" id="nfModal">
   <div class="nf-modal-header">
-    <span id="nfModalTitle">🔗 Nota Fiscal</span>
-    <button class="nf-modal-close" onclick="closeNF()">✕ Fechar</button>
+    <span id="nfModalTitle">🔗 Notas Fiscais</span>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="nf-modal-btn" id="nfBackBtn" onclick="backToNFList()" style="display:none">← Voltar</button>
+      <button class="nf-modal-btn red" onclick="closeNF()">✕ Fechar</button>
+    </div>
   </div>
-  <iframe id="nfFrame" src="" allowfullscreen></iframe>
+  <div class="nf-file-list" id="nfFileList"></div>
+  <iframe id="nfFrame" src="" style="display:none"></iframe>
 </div>
 
 <!-- MODAL OBSERVAÇÃO -->
@@ -553,7 +563,7 @@ function render(){
     <td>${r.categoria}</td>
     <td>${r.etapa}</td>
     <td style="color:#888">${r.nf}</td>
-    <td style="text-align:center">${r.nfUrl?`<button class="link-btn" onclick="openNF('${r.nfUrl}','${r.nf||''}')">🔗 NF</button>`:'<span style="color:#ccc">—</span>'}</td>
+    <td style="text-align:center">${r.nfUrl?`<button class="link-btn" onclick="openNF('${r.nfUrl}','${r.periodo||''}')">🔗 NF</button>`:'<span style="color:#ccc">—</span>'}</td>
     <td style="text-align:center">${r.fotosUrl?`<button class="link-btn foto" onclick="openPhotos('${r.fotosUrl}','${r.periodo}')">📷 Fotos</button>`:'<span style="color:#ccc">—</span>'}</td>
     <td class="val-r">${fmt(r.valor)}</td>
     <td class="obs-cell" onclick="openObs(this)" data-obs="${(r.obs||'').replace(/"/g,'&quot;')}">${r.obs||'—'}</td>
@@ -634,15 +644,54 @@ function closeFullPhoto(){
   document.getElementById('photoFullImg').src='';
 }
 
-// Modal Nota Fiscal
-function openNF(url, nf){
-  document.getElementById('nfModalTitle').textContent = '🔗 Nota Fiscal' + (nf ? ' — Nº '+nf : '');
-  document.getElementById('nfFrame').src = drivePreview(url);
+// Modal Nota Fiscal — lista PDFs da pasta via Drive API
+async function openNF(url, periodo){
+  const m = url.match(/\/folders\/([^/?#]+)/);
+  if(!m){ window.open(url,'_blank'); return; }
+  const folderId = m[1];
+  document.getElementById('nfModalTitle').textContent = '🔗 Notas Fiscais — '+(periodo||'');
+  document.getElementById('nfFileList').style.display='block';
+  document.getElementById('nfFrame').style.display='none';
+  document.getElementById('nfFrame').src='';
+  document.getElementById('nfBackBtn').style.display='none';
+  document.getElementById('nfFileList').innerHTML='<div class="nf-msg">Carregando arquivos…</div>';
   document.getElementById('nfModal').classList.add('open');
+  try{
+    const apiUrl=`https://www.googleapis.com/drive/v3/files?q=%27${folderId}%27+in+parents+and+trashed%3Dfalse&fields=files(id,name,mimeType)&orderBy=name&pageSize=100&key=${DRIVE_API_KEY}`;
+    const res=await fetch(apiUrl);
+    const data=await res.json();
+    if(!data.files||data.files.length===0){
+      document.getElementById('nfFileList').innerHTML='<div class="nf-msg">Nenhum arquivo encontrado nesta pasta.</div>';
+      return;
+    }
+    document.getElementById('nfFileList').innerHTML=data.files.map(f=>`
+      <div class="nf-file-item" onclick="openNFFile('${f.id}','${f.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">
+        <span style="font-size:22px">📄</span>
+        <span class="nf-file-name">${f.name}</span>
+        <span style="color:#64748b;font-size:20px">›</span>
+      </div>`).join('');
+  }catch(e){
+    document.getElementById('nfFileList').innerHTML='<div class="nf-msg" style="color:#ef4444">Erro ao carregar arquivos.</div>';
+  }
+}
+function openNFFile(id, name){
+  document.getElementById('nfModalTitle').textContent='📄 '+name;
+  document.getElementById('nfFileList').style.display='none';
+  document.getElementById('nfFrame').style.display='block';
+  document.getElementById('nfFrame').src='https://drive.google.com/file/d/'+id+'/preview';
+  document.getElementById('nfBackBtn').style.display='block';
+}
+function backToNFList(){
+  document.getElementById('nfFileList').style.display='block';
+  document.getElementById('nfFrame').style.display='none';
+  document.getElementById('nfFrame').src='';
+  document.getElementById('nfBackBtn').style.display='none';
 }
 function closeNF(){
   document.getElementById('nfModal').classList.remove('open');
-  document.getElementById('nfFrame').src = '';
+  document.getElementById('nfFrame').src='';
+  document.getElementById('nfFileList').innerHTML='';
+  document.getElementById('nfBackBtn').style.display='none';
 }
 
 // Modal Observação
