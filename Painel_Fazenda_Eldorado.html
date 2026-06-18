@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" id="vp">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -138,10 +138,12 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 .nf-modal iframe{flex:1;border:none;width:100%;background:#fff}
 
 /* ── FOTO AMPLIADA ── */
-.photo-full{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:10000;align-items:center;justify-content:center}
+.photo-full{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:10000;flex-direction:column}
 .photo-full.open{display:flex}
-.photo-full img{max-width:96vw;max-height:92vh;object-fit:contain;border-radius:4px}
-.photo-full-close{position:absolute;top:12px;right:16px;background:rgba(0,0,0,.5);border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;border-radius:50%;width:38px;height:38px}
+.photo-full-header{background:rgba(0,0,0,.6);padding:8px 12px;display:flex;justify-content:flex-end;flex-shrink:0}
+.photo-full-close{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:14px;cursor:pointer;border-radius:7px;padding:6px 14px}
+.photo-full-scroll{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;-webkit-overflow-scrolling:touch}
+.photo-full-scroll img{max-width:100%;max-height:100%;object-fit:contain;touch-action:pinch-zoom}
 
 /* scrollbar */
 ::-webkit-scrollbar{width:5px;height:5px}
@@ -215,9 +217,13 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 </div>
 
 <!-- FOTO AMPLIADA -->
-<div class="photo-full" id="photoFull" onclick="if(event.target===this)closeFullPhoto()">
-  <button class="photo-full-close" onclick="closeFullPhoto()">×</button>
-  <img id="photoFullImg" src="" alt="">
+<div class="photo-full" id="photoFull">
+  <div class="photo-full-header">
+    <button class="photo-full-close" onclick="closeFullPhoto()">✕ Fechar</button>
+  </div>
+  <div class="photo-full-scroll" onclick="closeFullPhoto()">
+    <img id="photoFullImg" src="" alt="" onclick="event.stopPropagation()">
+  </div>
 </div>
 
 <!-- MODAL NOTA FISCAL -->
@@ -605,6 +611,13 @@ function drivePreview(url){
   return url;
 }
 
+// Controle de zoom (habilita pinch-to-zoom nos modais)
+function setZoom(allow){
+  document.getElementById('vp').setAttribute('content',
+    allow ? 'width=device-width, initial-scale=1.0, maximum-scale=5.0'
+           : 'width=device-width, initial-scale=1.0, maximum-scale=1.0');
+}
+
 // Galeria de fotos via Google Drive API (sem app, sem login)
 const DRIVE_API_KEY = 'AIzaSyCNp3XHmxkPztYXDg6_swqNLORkeYCUeqM';
 
@@ -638,10 +651,12 @@ function closePhotos(){
 function openFullPhoto(id){
   document.getElementById('photoFullImg').src='https://drive.google.com/thumbnail?id='+id+'&sz=w2000';
   document.getElementById('photoFull').classList.add('open');
+  setZoom(true);
 }
 function closeFullPhoto(){
   document.getElementById('photoFull').classList.remove('open');
   document.getElementById('photoFullImg').src='';
+  setZoom(false);
 }
 
 // Modal Nota Fiscal — lista PDFs da pasta via Drive API
@@ -680,18 +695,21 @@ function openNFFile(id, name){
   document.getElementById('nfFrame').style.display='block';
   document.getElementById('nfFrame').src='https://drive.google.com/file/d/'+id+'/preview';
   document.getElementById('nfBackBtn').style.display='block';
+  setZoom(true);
 }
 function backToNFList(){
   document.getElementById('nfFileList').style.display='block';
   document.getElementById('nfFrame').style.display='none';
   document.getElementById('nfFrame').src='';
   document.getElementById('nfBackBtn').style.display='none';
+  setZoom(false);
 }
 function closeNF(){
   document.getElementById('nfModal').classList.remove('open');
   document.getElementById('nfFrame').src='';
   document.getElementById('nfFileList').innerHTML='';
   document.getElementById('nfBackBtn').style.display='none';
+  setZoom(false);
 }
 
 // Modal Observação
