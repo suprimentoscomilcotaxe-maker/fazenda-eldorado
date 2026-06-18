@@ -97,6 +97,17 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 .link-btn:hover{background:#d6eaff}
 .link-btn.foto{background:#fff8f0;border-color:#ffd4a0;color:#e65100}
 .val-r{text-align:right;font-weight:700;color:#111}
+.obs-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888;cursor:pointer;text-decoration:underline dotted #bbb}
+.obs-cell:hover{color:#1565c0}
+
+/* ── MODAL OBSERVAÇÃO ── */
+.obs-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:20px}
+.obs-modal.open{display:flex}
+.obs-modal-box{background:#fff;border-radius:12px;max-width:480px;width:100%;padding:24px 20px;box-shadow:0 8px 32px rgba(0,0,0,.3);position:relative}
+.obs-modal-title{font-size:11px;font-weight:700;color:#999;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
+.obs-modal-text{font-size:14px;color:#222;line-height:1.6;word-break:break-word}
+.obs-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;color:#888;cursor:pointer;line-height:1}
+.obs-modal-close:hover{color:#222}
 
 /* scrollbar */
 ::-webkit-scrollbar{width:5px;height:5px}
@@ -158,6 +169,15 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <p>Carregando dados da planilha…</p>
+</div>
+
+<!-- MODAL OBSERVAÇÃO -->
+<div class="obs-modal" id="obsModal" onclick="if(event.target===this)closeObs()">
+  <div class="obs-modal-box">
+    <button class="obs-modal-close" onclick="closeObs()">×</button>
+    <div class="obs-modal-title">Observação</div>
+    <div class="obs-modal-text" id="obsModalText"></div>
+  </div>
 </div>
 
 <!-- IDENTIDADE -->
@@ -484,7 +504,7 @@ function render(){
     <td style="text-align:center">${r.nfUrl?`<a class="link-btn" href="${r.nfUrl}" target="_blank">🔗 NF</a>`:'<span style="color:#ccc">—</span>'}</td>
     <td style="text-align:center">${r.fotosUrl?`<a class="link-btn foto" href="${r.fotosUrl}" target="_blank">📷 Fotos</a>`:'<span style="color:#ccc">—</span>'}</td>
     <td class="val-r">${fmt(r.valor)}</td>
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888" title="${r.obs||''}">${r.obs||'—'}</td>
+    <td class="obs-cell" onclick="openObs(this)" data-obs="${(r.obs||'').replace(/"/g,'&quot;')}">${r.obs||'—'}</td>
   </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:#bbb;padding:20px">Nenhum registro encontrado</td></tr>`;
 
   document.getElementById('tblFoot').innerHTML=`<tr>
@@ -513,6 +533,17 @@ if(AUTO_REFRESH_MINUTES > 0){
 // Service Worker (PWA - tela cheia no Android)
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// Modal Observação
+function openObs(td){
+  const text = td.getAttribute('data-obs');
+  if(!text || text==='—') return;
+  document.getElementById('obsModalText').textContent = text;
+  document.getElementById('obsModal').classList.add('open');
+}
+function closeObs(){
+  document.getElementById('obsModal').classList.remove('open');
 }
 
 // Inicia
