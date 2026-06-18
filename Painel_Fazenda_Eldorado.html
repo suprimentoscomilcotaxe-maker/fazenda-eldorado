@@ -608,7 +608,7 @@ function closePhotos(){
   document.getElementById('photoGallery').innerHTML='';
 }
 function openFullPhoto(id){
-  document.getElementById('photoFullImg').src='https://drive.google.com/uc?export=view&id='+id;
+  document.getElementById('photoFullImg').src='https://drive.google.com/thumbnail?id='+id+'&sz=w2000';
   document.getElementById('photoFull').classList.add('open');
 }
 function closeFullPhoto(){
