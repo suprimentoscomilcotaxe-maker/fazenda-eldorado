@@ -501,8 +501,8 @@ function render(){
     <td>${r.categoria}</td>
     <td>${r.etapa}</td>
     <td style="color:#888">${r.nf}</td>
-    <td style="text-align:center">${r.nfUrl?`<a class="link-btn" href="${r.nfUrl}" target="_blank">🔗 NF</a>`:'<span style="color:#ccc">—</span>'}</td>
-    <td style="text-align:center">${r.fotosUrl?`<a class="link-btn foto" href="${r.fotosUrl}" target="_blank">📷 Fotos</a>`:'<span style="color:#ccc">—</span>'}</td>
+    <td style="text-align:center">${r.nfUrl?`<a class="link-btn" href="${drivePreview(r.nfUrl)}" target="_blank">🔗 NF</a>`:'<span style="color:#ccc">—</span>'}</td>
+    <td style="text-align:center">${r.fotosUrl?`<a class="link-btn foto" href="${driveFolderViewer(r.fotosUrl)}" target="_blank">📷 Fotos</a>`:'<span style="color:#ccc">—</span>'}</td>
     <td class="val-r">${fmt(r.valor)}</td>
     <td class="obs-cell" onclick="openObs(this)" data-obs="${(r.obs||'').replace(/"/g,'&quot;')}">${r.obs||'—'}</td>
   </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:#bbb;padding:20px">Nenhum registro encontrado</td></tr>`;
@@ -533,6 +533,22 @@ if(AUTO_REFRESH_MINUTES > 0){
 // Service Worker (PWA - tela cheia no Android)
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// Converte link do Google Drive para preview (abre PDF direto no navegador, sem app)
+function drivePreview(url){
+  if(!url) return url;
+  const m = url.match(/\/file\/d\/([^/?#]+)/);
+  if(m) return 'https://drive.google.com/file/d/'+m[1]+'/preview';
+  return url;
+}
+
+// Converte link de pasta do Google Drive para viewer embutido (abre no navegador, sem app, sem login)
+function driveFolderViewer(url){
+  if(!url) return url;
+  const m = url.match(/\/folders\/([^/?#]+)/);
+  if(m) return 'https://drive.google.com/embeddedfolderview?id='+m[1]+'#list';
+  return url;
 }
 
 // Modal Observação
