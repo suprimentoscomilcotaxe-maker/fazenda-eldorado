@@ -122,6 +122,15 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 .photo-thumb:hover img{opacity:.8;transform:scale(1.03)}
 .photo-msg{color:#94a3b8;text-align:center;padding:40px;font-size:13px;grid-column:1/-1}
 
+/* ── MODAL NOTA FISCAL ── */
+.nf-modal{display:none;position:fixed;inset:0;background:#111;z-index:9999;flex-direction:column}
+.nf-modal.open{display:flex}
+.nf-modal-header{background:#1a2035;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px}
+.nf-modal-header span{font-size:13px;font-weight:600;color:#94a3b8}
+.nf-modal-close{background:none;border:1.5px solid #2d2d44;color:#94a3b8;border-radius:7px;padding:5px 14px;font-size:13px;cursor:pointer}
+.nf-modal-close:hover{border-color:#ef4444;color:#ef4444}
+.nf-modal iframe{flex:1;border:none;width:100%;height:100%;background:#fff}
+
 /* ── FOTO AMPLIADA ── */
 .photo-full{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:10000;align-items:center;justify-content:center}
 .photo-full.open{display:flex}
@@ -203,6 +212,15 @@ tfoot td{padding:7px 10px;font-weight:700;border-top:2px solid #ddd;background:#
 <div class="photo-full" id="photoFull" onclick="if(event.target===this)closeFullPhoto()">
   <button class="photo-full-close" onclick="closeFullPhoto()">×</button>
   <img id="photoFullImg" src="" alt="">
+</div>
+
+<!-- MODAL NOTA FISCAL -->
+<div class="nf-modal" id="nfModal">
+  <div class="nf-modal-header">
+    <span id="nfModalTitle">🔗 Nota Fiscal</span>
+    <button class="nf-modal-close" onclick="closeNF()">✕ Fechar</button>
+  </div>
+  <iframe id="nfFrame" src="" allowfullscreen></iframe>
 </div>
 
 <!-- MODAL OBSERVAÇÃO -->
@@ -535,7 +553,7 @@ function render(){
     <td>${r.categoria}</td>
     <td>${r.etapa}</td>
     <td style="color:#888">${r.nf}</td>
-    <td style="text-align:center">${r.nfUrl?`<a class="link-btn" href="${drivePreview(r.nfUrl)}" target="_blank">🔗 NF</a>`:'<span style="color:#ccc">—</span>'}</td>
+    <td style="text-align:center">${r.nfUrl?`<button class="link-btn" onclick="openNF('${r.nfUrl}','${r.nf||''}')">🔗 NF</button>`:'<span style="color:#ccc">—</span>'}</td>
     <td style="text-align:center">${r.fotosUrl?`<button class="link-btn foto" onclick="openPhotos('${r.fotosUrl}','${r.periodo}')">📷 Fotos</button>`:'<span style="color:#ccc">—</span>'}</td>
     <td class="val-r">${fmt(r.valor)}</td>
     <td class="obs-cell" onclick="openObs(this)" data-obs="${(r.obs||'').replace(/"/g,'&quot;')}">${r.obs||'—'}</td>
@@ -614,6 +632,17 @@ function openFullPhoto(id){
 function closeFullPhoto(){
   document.getElementById('photoFull').classList.remove('open');
   document.getElementById('photoFullImg').src='';
+}
+
+// Modal Nota Fiscal
+function openNF(url, nf){
+  document.getElementById('nfModalTitle').textContent = '🔗 Nota Fiscal' + (nf ? ' — Nº '+nf : '');
+  document.getElementById('nfFrame').src = drivePreview(url);
+  document.getElementById('nfModal').classList.add('open');
+}
+function closeNF(){
+  document.getElementById('nfModal').classList.remove('open');
+  document.getElementById('nfFrame').src = '';
 }
 
 // Modal Observação
